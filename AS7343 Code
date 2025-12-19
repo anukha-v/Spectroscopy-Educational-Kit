@@ -1,0 +1,101 @@
+#include <SparkFun_AS7343.h>
+#include <EEPROM.h>
+
+SfeAS7343ArdI2C mySensor;
+
+uint16_t myData[ksfAS7343NumChannels]; // Array to hold spectral data
+float sumData [18];
+float avgData [12];
+float absorbanceData [12];
+int count = 0;
+float avgFZ_450, avgFY_555, avgFXL_600, avgNIR_855, avgF2_425, avgF3_475, avgF4_515, avgF6_640, avgF1_405, avgF7_690, avgF8_745, avgF5_550;
+bool flag = true;
+numSamples = 10; //can change
+
+void setup()
+{
+    mySensor.ledOff();
+    pinMode(11, OUTPUT);
+    Serial.begin(115200);
+    while (!Serial)
+    {
+        delay(100);
+    }
+
+    Wire.begin();
+
+    // Initialize sensor and run default setup.
+    mySensor.begin();
+    Serial.println("Sensor began.");
+
+    mySensor.powerOn();
+    Serial.println("Device powered on.");
+
+    // Set the AutoSmux to output all 18 channels
+    mySensor.setAutoSmux(AUTOSMUX_18_CHANNELS);
+    Serial.println("AutoSmux set to 18 channels.");
+
+    // Enable Spectral Measurement
+    mySensor.enableSpectralMeasurement();
+    Serial.println("Spectral measurement enabled.");
+    mySensor.ledOff();
+}
+
+void averageData(){
+  avgF1_405 = sumData[12]/count;
+  avgF2_425 = sumData[6]/count;
+  avgFZ_450 = sumData[0]/count;
+  avgF3_475 = sumData[7]/count;
+  avgF4_515 = sumData[8]/count;
+  avgF5_550 = sumData[15]/count;
+  avgFY_555 = sumData[1]/count;
+  avgFXL_600 = sumData[2]/count;
+  avgF6_640 = sumData[9]/count;
+  avgF7_690 = sumData[13]/count; 
+  avgF8_745 = sumData[14]/count;
+  avgNIR_855 = sumData[3]/count;
+}
+
+void loop(){
+  while(flag){
+    analogWrite(11, 255); 
+    while(count < numSamples){ // restricting to numsamples (10)
+
+      // Read all data registers
+      // if it fails, print a failure message and continue
+      mySensor.readSpectraDataFromSensor();
+
+      // Get the data from the sensor
+      // Note, we are using AutoSmux set to 12 channels
+      // and the data will be written to the myData array
+      // The size of the array is defined in the header file
+      // This method returns the number of channels read
+      int channelsRead = mySensor.getData(myData);
+
+      // Print the data from all the channels that were read
+      for (int channel = 0; channel < channelsRead; channel++)
+      {
+          Serial.print(myData[channel]);
+          Serial.print(",");
+          sumData[channel] = sumData[channel] + myData[channel];
+      }
+      Serial.println();
+      count++;
+    }
+    //printing averaged data across 10 trials in order of wavelength (405, 425, 450, 475, 515, 550, 600, 690, 745, 855)
+    averageData();
+    Serial.println(avgF1_405);
+    Serial.println(avgF2_425);
+    Serial.println(avgFZ_450);
+    Serial.println(avgF3_475);
+    Serial.println(avgF4_515);
+    Serial.println(avgF5_550);
+    Serial.println(avgFXL_600);
+    Serial.println(avgF6_640);
+    Serial.println(avgF7_690);
+    Serial.println(avgF8_745);
+    Serial.println(avgNIR_855);
+    flag = false;
+  }
+  analogWrite(11, 0); //turning LED off
+}
